@@ -21,6 +21,10 @@ orbital-scheduler/
 ├── ExperimentRunner.java
 ├── tests/
 │   └── SimulatorTest.java
+├── ui/                          # Static experiment dashboard
+│   ├── index.html
+│   ├── style.css
+│   └── app.js
 ├── pom.xml
 ├── README.md
 └── .gitignore
@@ -92,6 +96,16 @@ java -jar target/orbital-scheduler.jar --seed 123 --nodes 100
 
 The defaults are seed 42 and 10 nodes. `--nodes` accepts 1–1000 and scales each workload with the fleet.
 Every run overwrites `results.csv` with four scenarios × two strategies.
+
+To view the dashboard after running the experiment, serve the project directory and open
+`http://localhost:8000/ui/`:
+
+```sh
+python3 -m http.server 8000
+```
+
+The dashboard reads the latest `results.csv` when available and otherwise shows the documented seed-42
+results. It has no framework, build step, backend, or external assets.
 
 ## Metrics and results
 
