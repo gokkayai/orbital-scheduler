@@ -5,8 +5,8 @@
 A small Java 17 project exploring this question with synthetic jobs and orbital compute nodes.
 It models resource allocation, input transfers, sunlight/eclipse cycles, and battery constraints—not live telemetry.
 
-**Milestone 1:** the simulation engine and least-loaded baseline work. The energy-aware strategy,
-seeded scenarios, and CSV comparison are next. No scheduler comparison results are claimed yet.
+**Milestone 2:** the simulation engine and both scheduling strategies work. Seeded scenarios and
+the CSV comparison are next. No scheduler comparison results are claimed yet.
 
 ## Architecture
 
@@ -16,6 +16,7 @@ orbital-scheduler/
 ├── ComputeNode.java
 ├── SchedulingStrategy.java
 ├── LeastLoadedScheduler.java
+├── EnergyAwareScheduler.java
 ├── Simulator.java
 ├── ExperimentRunner.java
 ├── tests/
@@ -35,6 +36,7 @@ flowchart LR
     Simulator --> ComputeNode
     Simulator --> SchedulingStrategy
     SchedulingStrategy --> LeastLoadedScheduler
+    SchedulingStrategy --> EnergyAwareScheduler
 ```
 
 `Job` tracks requirements and progress. `ComputeNode` owns active jobs and power accounting.
@@ -44,8 +46,13 @@ flowchart LR
 ## Scheduling and execution
 
 - **Least loaded:** choose the eligible node with the most free GPUs; break ties by node ID.
-- **Energy aware (next milestone):** minimize `transferMinutes + 30 × (1 − batteryFraction) × sunlightMultiplier`,
-  where the multiplier is 0.5 in sunlight and 1 in eclipse. This penalty is a preference, not a forecast.
+- **Energy aware:** minimize `transferMinutes + 30 × (1 − batteryFraction) × sunlightMultiplier`,
+  where the multiplier is 0.5 in sunlight and 1 in eclipse. The 30-minute maximum battery penalty
+  makes the tradeoff easy to interpret: a transfer delay longer than the battery penalty is not worth it.
+  This is a current-state preference, not a forecast.
+
+Both strategies apply GPU capacity as a hard eligibility rule. The energy-aware strategy uses free GPUs
+as its first tie-breaker, followed by node ID, so every decision is deterministic.
 
 Eligibility requires enough free GPUs, battery above 20 Wh, and enough energy for the next minute
 of the node's workload. Jobs arrive in time/ID order; an unplaceable job does not block smaller jobs.
@@ -91,9 +98,9 @@ and total consumed kWh. Waiting includes **queue time and power pauses across al
 including missed jobs. Energy includes baseline power and incomplete work; solar generation is not subtracted.
 Runs must include every deadline.
 
-Four tests cover baseline selection, insufficient resources, power pauses/recovery, and transfer/deadline
-boundaries with hand-calculated energy. Paired experiment results and `results.csv` follow after the second
-scheduler. Lower energy alone is not a win if fewer jobs complete.
+Six tests cover both strategies' decisions, insufficient resources, power pauses/recovery, and
+transfer/deadline boundaries with hand-calculated energy. Paired experiment results and `results.csv`
+follow in the experiment milestone. Lower energy alone is not a win if fewer jobs complete.
 
 ## Limitations
 

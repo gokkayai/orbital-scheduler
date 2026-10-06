@@ -19,6 +19,32 @@ class SimulatorTest {
     }
 
     @Test
+    void energyAwareAvoidsLowBatteryNode() {
+        ComputeNode lowBattery = new ComputeNode(1, 2, 30, 60, 100);
+        ComputeNode healthyBattery = new ComputeNode(2, 2, 90, 60, 100);
+        Job job = new Job(1, 0, 1, 10, 0, 30);
+
+        ComputeNode selected = new EnergyAwareScheduler()
+                .chooseNode(job, List.of(lowBattery, healthyBattery)).orElseThrow();
+
+        assertSame(healthyBattery, selected);
+    }
+
+    @Test
+    void energyAwarePrefersFastLinkForLargeTransfer() {
+        ComputeNode slowLink = new ComputeNode(1, 2, 90, 60, 10);
+        ComputeNode fastLink = new ComputeNode(2, 2, 90, 60, 100);
+        Job largeTransfer = new Job(1, 0, 1, 10, 10, 180);
+
+        ComputeNode selected = new EnergyAwareScheduler()
+                .chooseNode(largeTransfer, List.of(slowLink, fastLink)).orElseThrow();
+
+        assertSame(fastLink, selected);
+        assertEquals(134, slowLink.transferMinutes(largeTransfer));
+        assertEquals(14, fastLink.transferMinutes(largeTransfer));
+    }
+
+    @Test
     void insufficientResourcesDoNotBlockSmallerJobsAndCountAsWaiting() {
         ComputeNode node = new ComputeNode(1, 1, 90, 60, 100);
         Job tooLarge = new Job(1, 0, 2, 1, 0, 3);
