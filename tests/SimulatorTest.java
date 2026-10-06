@@ -102,4 +102,19 @@ class SimulatorTest {
         assertEquals(85.0 / 60 / 1000, result.energyKwh(), 1e-9);
         assertThrows(IllegalStateException.class, () -> simulation.run(4));
     }
+
+
+    @Test
+    void identicalSeedsReproduceEveryExperimentResult() {
+        List<ExperimentRunner.ExperimentResult> first = ExperimentRunner.runExperiments(123, 10);
+        List<ExperimentRunner.ExperimentResult> second = ExperimentRunner.runExperiments(123, 10);
+
+        assertEquals(first, second);
+        assertEquals(8, first.size());
+        for (int index = 0; index < first.size(); index += 2) {
+            assertEquals(first.get(index).scenario(), first.get(index + 1).scenario());
+            assertEquals(first.get(index).metrics().submitted(),
+                    first.get(index + 1).metrics().submitted());
+        }
+    }
 }

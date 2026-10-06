@@ -5,8 +5,8 @@
 A small Java 17 project exploring this question with synthetic jobs and orbital compute nodes.
 It models resource allocation, input transfers, sunlight/eclipse cycles, and battery constraints—not live telemetry.
 
-**Milestone 2:** the simulation engine and both scheduling strategies work. Seeded scenarios and
-the CSV comparison are next. No scheduler comparison results are claimed yet.
+The simulator runs both strategies against identical seeded workloads, prints paired comparisons,
+and exports the eight results to one CSV file.
 
 ## Architecture
 
@@ -41,7 +41,8 @@ flowchart LR
 
 `Job` tracks requirements and progress. `ComputeNode` owns active jobs and power accounting.
 `Simulator` advances one minute at a time; `SchedulingStrategy` only selects a node.
-`ExperimentRunner` currently supplies a fixed example. No runtime libraries are required.
+`ExperimentRunner` creates each seeded scenario twice so both strategies receive identical nodes and jobs.
+No runtime libraries are required.
 
 ## Scheduling and execution
 
@@ -86,10 +87,11 @@ Requires JDK 17 and Maven 3.9+. From the project root:
 mvn test
 mvn package
 java -jar target/orbital-scheduler.jar
+java -jar target/orbital-scheduler.jar --seed 123 --nodes 100
 ```
 
-The example runs two nodes and four jobs through the baseline. Command-line options for seed and
-node count will arrive with the experiment milestone.
+The defaults are seed 42 and 10 nodes. `--nodes` accepts 1–1000 and scales each workload with the fleet.
+Every run overwrites `results.csv` with four scenarios × two strategies.
 
 ## Metrics and results
 
@@ -98,9 +100,36 @@ and total consumed kWh. Waiting includes **queue time and power pauses across al
 including missed jobs. Energy includes baseline power and incomplete work; solar generation is not subtracted.
 Runs must include every deadline.
 
-Six tests cover both strategies' decisions, insufficient resources, power pauses/recovery, and
-transfer/deadline boundaries with hand-calculated energy. Paired experiment results and `results.csv`
-follow in the experiment milestone. Lower energy alone is not a win if fewer jobs complete.
+Four scenarios vary one main pressure at a time. Jobs arrive during the first 180 minutes, request
+1–2 GPUs for 5–20 minutes, and have 90-minute deadlines. The default run uses 10 two-GPU nodes:
+
+| Scenario | Jobs | Battery | Effective bandwidth | Input per job | Eclipse |
+|---|---:|---:|---:|---:|---:|
+| Low workload | 40 | 80–100 Wh | 100 Mbps | 0.1 GB | 30 min |
+| High workload | 240 | 80–100 Wh | 100 Mbps | 0.1 GB | 30 min |
+| Power constrained | 120 | 25–45 Wh | 100 Mbps | 0.1 GB | 35 min |
+| Transfer constrained | 120 | 80–100 Wh | 10/50/100 Mbps | 5 GB | 30 min |
+
+### Default results
+
+Seed 42 with 10 nodes produced:
+
+| Scenario | Strategy | Completed | Missed | Average wait | Energy |
+|---|---|---:|---:|---:|---:|
+| Low workload | Least loaded / Energy aware | 100% / 100% | 0 / 0 | 0.0 / 0.0 min | 0.486 / 0.486 kWh |
+| High workload | Least loaded / Energy aware | 100% / 100% | 0 / 0 | 26.3 / 24.4 min | 1.736 / 1.736 kWh |
+| Power constrained | Least loaded / Energy aware | 100% / 100% | 0 / 0 | 0.5 / 0.2 min | 0.955 / 0.955 kWh |
+| Transfer constrained | Least loaded / Energy aware | 74.2% / 81.7% | 31 / 22 | 30.2 / 25.9 min | 0.956 / 0.895 kWh |
+
+The energy-aware scheduler mattered most when nodes had very different link speeds and jobs carried
+large inputs: it gained 7.5 percentage points in completion, cut misses by nine jobs, reduced mean waiting
+by 4.3 minutes, and used 6.4% less energy by avoiding slow transfers. Under light load it made no difference.
+Under high load and low-battery conditions it modestly reduced waiting, but every job still completed and
+energy was effectively unchanged. These are deterministic outcomes for one synthetic seed, not general
+performance claims.
+
+Seven tests cover both strategies' decisions, insufficient resources, power pauses/recovery,
+transfer/deadline boundaries with hand-calculated energy, and deterministic replay.
 
 ## Limitations
 
